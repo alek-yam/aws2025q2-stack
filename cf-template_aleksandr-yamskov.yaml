@@ -6,6 +6,9 @@ Parameters:
   InstanceType:
     Type: String
     Default: t2.micro
+  IamInstanceProfileArn:
+    Type: String
+    Default: arn:aws:iam::822619185993:instance-profile/ReadAccessRoleS3
   SshClientIp:
     Description: The IP address range that can be used to SSH to the EC2 instances
     Type: String
@@ -34,6 +37,7 @@ Resources:
         - 0
         - !GetAZs ''
       CidrBlock: 10.0.11.0/24
+      MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
           Value: aws2025q2-PublicSubnet-A
@@ -45,6 +49,7 @@ Resources:
         - 1
         - !GetAZs ''
       CidrBlock: 10.0.12.0/24
+      MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
           Value: aws2025q2-PublicSubnet-B
@@ -90,6 +95,14 @@ Resources:
       GroupDescription: Security Group for allowing access over HTTP/HTTPS from
         anywhere and allowing SSH connections from your IP address only
       VpcId: !Ref VPC
+  SecurityGroupIngressInternal:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      IpProtocol: -1 # "-1" allows all protocols
+      FromPort: -1 # "-1" allows all ports
+      ToPort: -1 # "-1" allows all ports
+      SourceSecurityGroupId: !Ref SecurityGroup
+      GroupId: !Ref SecurityGroup
   SecurityGroupIngressSSH:
     Type: AWS::EC2::SecurityGroupIngress
     Properties:
@@ -132,10 +145,14 @@ Resources:
         SecurityGroupIds:
           - !Ref SecurityGroup
         KeyName: aws2025q2-ssh-keys
+        IamInstanceProfile:
+          Arn: !Ref IamInstanceProfileArn
         UserData:
           Fn::Base64: !Sub |
-            #!/bin/bash
+            #!/usr/bin/env bash
+            echo "Starting location-provider..."
             cd app
+            aws s3 cp s3://ec2-location-provider/ec2-location-provider-0.0.1-SNAPSHOT.jar ./
             java -jar ec2-location-provider-0.0.1-SNAPSHOT.jar
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -144,7 +161,7 @@ Resources:
       VPCZoneIdentifier:
         - !Ref PublicSubnetA
         - !Ref PublicSubnetB
-      MinSize: '1'
+      MinSize: '2'
       MaxSize: '5'
       DesiredCapacity: '2'
       LaunchTemplate:
@@ -168,6 +185,8 @@ Resources:
       Subnets:
         - !Ref PublicSubnetA
         - !Ref PublicSubnetB
+      SecurityGroups:
+        - !Ref SecurityGroup
       Tags:
         - Key: Name
           Value: aws2025q2-LoadBalancer
