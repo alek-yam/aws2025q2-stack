@@ -2,7 +2,7 @@ Parameters:
   ImageId:
     Type: String
     Description: AWS location provider app
-    Default: ami-0e1f6b56dd2f5b75c
+    Default: ami-0d5f46fd404e2b447
   InstanceType:
     Type: String
     Default: t2.micro
