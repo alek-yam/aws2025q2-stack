@@ -2,13 +2,13 @@ Parameters:
   ImageId:
     Type: String
     Description: AWS location provider app
-    Default: ami-0d5f46fd404e2b447
+    Default: ami-075eb70588c18b490
   InstanceType:
     Type: String
     Default: t2.micro
-  #IamInstanceProfileArn:
-    #Type: String
-    #Default: arn:aws:iam::822619185993:instance-profile/ReadAccessRoleS3
+  IamInstanceProfileArn:
+    Type: String
+    Default: arn:aws:iam::822619185993:instance-profile/FullAccessRoleS3
   SshClientIp:
     Description: The IP address range that can be used to SSH to the EC2 instances
     Type: String
@@ -26,6 +26,8 @@ Resources:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
       Tags:
         - Key: Name
           Value: aws2025q2-Network
@@ -41,6 +43,17 @@ Resources:
       Tags:
         - Key: Name
           Value: aws2025q2-PublicSubnet-A
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs ''
+      CidrBlock: 10.0.12.0/24
+      Tags:
+        - Key: Name
+          Value: aws2025q2-PrivateSubnet-A
   PublicSubnetB:
     Type: AWS::EC2::Subnet
     Properties:
@@ -48,11 +61,22 @@ Resources:
       AvailabilityZone: !Select
         - 1
         - !GetAZs ''
-      CidrBlock: 10.0.12.0/24
+      CidrBlock: 10.0.21.0/24
       #MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
           Value: aws2025q2-PublicSubnet-B
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs ''
+      CidrBlock: 10.0.22.0/24
+      Tags:
+        - Key: Name
+          Value: aws2025q2-PrivateSubnet-B
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
@@ -135,6 +159,20 @@ Resources:
       ToPort: 8080
       CidrIp: 0.0.0.0/0
       GroupId: !Ref SecurityGroup
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: aws2025q2-SecGrForDb
+      GroupDescription: Security Group for allowing access from the members of the same group
+      VpcId: !Ref VPC
+  DbSecurityGroupIngressInternal:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      IpProtocol: -1 # "-1" allows all protocols
+      FromPort: -1 # "-1" allows all ports
+      ToPort: -1 # "-1" allows all ports
+      SourceSecurityGroupId: !Ref DbSecurityGroup
+      GroupId: !Ref DbSecurityGroup
   LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -144,16 +182,15 @@ Resources:
         ImageId: !Ref ImageId
         SecurityGroupIds:
           - !Ref SecurityGroup
+          - !Ref DbSecurityGroup
         KeyName: aws2025q2-ssh-keys
-        #IamInstanceProfile:
-          #Arn: !Ref IamInstanceProfileArn
-        #UserData:
-          #Fn::Base64: !Sub |
+        IamInstanceProfile:
+          Arn: !Ref IamInstanceProfileArn
+        UserData:
+          Fn::Base64: !Sub |
             #!/usr/bin/env bash
-            #echo "Starting location-provider..."
-            #cd app
-            #aws s3 cp s3://ec2-location-provider/ec2-location-provider-0.0.1-SNAPSHOT.jar ./
-            #java -jar ec2-location-provider-0.0.1-SNAPSHOT.jar
+            cd app
+            aws s3 cp s3://aws2025q2-simple-app/simple-app-0.0.1-SNAPSHOT.jar ./
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
@@ -161,9 +198,9 @@ Resources:
       VPCZoneIdentifier:
         - !Ref PublicSubnetA
         - !Ref PublicSubnetB
-      MinSize: '2'
+      MinSize: '1'
       MaxSize: '5'
-      DesiredCapacity: '2'
+      DesiredCapacity: '1'
       LaunchTemplate:
         LaunchTemplateId: !Ref LaunchTemplate
         Version: !GetAtt LaunchTemplate.LatestVersionNumber
