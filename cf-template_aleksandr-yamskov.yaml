@@ -8,7 +8,7 @@ Parameters:
     Default: t2.micro
   IamInstanceProfileArn:
     Type: String
-    Default: arn:aws:iam::822619185993:instance-profile/FullAccessRoleS3
+    Default: arn:aws:iam::822619185993:instance-profile/FullAccessRole_S3_SQS_SNS
   SshClientIp:
     Description: The IP address range that can be used to SSH to the EC2 instances
     Type: String
@@ -190,7 +190,7 @@ Resources:
           Fn::Base64: !Sub |
             #!/usr/bin/env bash
             cd app
-            aws s3 cp s3://aws2025q2-simple-app/simple-app-0.0.1-SNAPSHOT.jar ./
+            aws s3 cp s3://aws2025q2-simple-app/simple-app-0.0.2-SNAPSHOT.jar ./
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
@@ -244,7 +244,7 @@ Resources:
       Protocol: HTTP
       HealthCheckPort: 8080
       HealthCheckProtocol: HTTP
-      HealthCheckPath: /api/metadata/availability-zone
+      HealthCheckPath: /health-check
       HealthCheckIntervalSeconds: 30
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 3
