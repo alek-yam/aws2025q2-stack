@@ -1,14 +1,38 @@
 Parameters:
+  VpcId:
+    Type: String
+    Description: VPC for Simple app
+    Default: vpc-08cd24a9ab45170f1
+  PublicSubnetAId:
+    Type: String
+    Description: Public subnet A
+    Default: subnet-080dfaa4dee6e7fd8
+  PublicSubnetBId:
+    Type: String
+    Description: Public subnet B
+    Default: subnet-018ff1391f2680710
+  PublicRouteTableId:
+    Type: String
+    Description: Public route table
+    Default: rtb-02ce471e9d9699a76
+  SecurityGroupId:
+    Type: String
+    Description: Security group for public subnets
+    Default: sg-096c81b1ae1e36215
+  DbSecurityGroupId:
+    Type: String
+    Description: Security group for DB
+    Default: sg-01ab9581370ee2285
   ImageId:
     Type: String
-    Description: AWS location provider app
-    Default: ami-075eb70588c18b490
+    Description: Simple app for lambda
+    Default: ami-03063f7abc378f03b
   InstanceType:
     Type: String
     Default: t2.micro
   IamInstanceProfileArn:
     Type: String
-    Default: arn:aws:iam::822619185993:instance-profile/FullAccessRole_S3_SQS_SNS
+    Default: arn:aws:iam::822619185993:instance-profile/SimpleAppRole
   SshClientIp:
     Description: The IP address range that can be used to SSH to the EC2 instances
     Type: String
@@ -18,65 +42,6 @@ Parameters:
     AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
     ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x
 Resources:
-  S3Bucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: aws2025q2-aleksandr-yamskov
-  VPC:
-    Type: AWS::EC2::VPC
-    Properties:
-      CidrBlock: 10.0.0.0/16
-      EnableDnsSupport: true
-      EnableDnsHostnames: true
-      Tags:
-        - Key: Name
-          Value: aws2025q2-Network
-  PublicSubnetA:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select
-        - 0
-        - !GetAZs ''
-      CidrBlock: 10.0.11.0/24
-      #MapPublicIpOnLaunch: true
-      Tags:
-        - Key: Name
-          Value: aws2025q2-PublicSubnet-A
-  PrivateSubnetA:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select
-        - 0
-        - !GetAZs ''
-      CidrBlock: 10.0.12.0/24
-      Tags:
-        - Key: Name
-          Value: aws2025q2-PrivateSubnet-A
-  PublicSubnetB:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select
-        - 1
-        - !GetAZs ''
-      CidrBlock: 10.0.21.0/24
-      #MapPublicIpOnLaunch: true
-      Tags:
-        - Key: Name
-          Value: aws2025q2-PublicSubnet-B
-  PrivateSubnetB:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select
-        - 1
-        - !GetAZs ''
-      CidrBlock: 10.0.22.0/24
-      Tags:
-        - Key: Name
-          Value: aws2025q2-PrivateSubnet-B
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
@@ -86,93 +51,15 @@ Resources:
   VPCGatewayAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
-      VpcId: !Ref VPC
+      VpcId: !Ref VpcId
       InternetGatewayId: !Ref InternetGateway
-  PublicRouteTable:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPC
-      Tags:
-        - Key: Name
-          Value: aws2025q2-PublicRouteTable
   PublicRoute:
     Type: AWS::EC2::Route
     DependsOn: VPCGatewayAttachment
     Properties:
-      RouteTableId: !Ref PublicRouteTable
+      RouteTableId: !Ref PublicRouteTableId
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
-  PublicSubnetARouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref PublicSubnetA
-      RouteTableId: !Ref PublicRouteTable
-  PublicSubnetBRouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref PublicSubnetB
-      RouteTableId: !Ref PublicRouteTable
-  SecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: aws2025q2-SecGr1
-      GroupDescription: Security Group for allowing access over HTTP/HTTPS from
-        anywhere and allowing SSH connections from your IP address only
-      VpcId: !Ref VPC
-  SecurityGroupIngressInternal:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      IpProtocol: -1 # "-1" allows all protocols
-      FromPort: -1 # "-1" allows all ports
-      ToPort: -1 # "-1" allows all ports
-      SourceSecurityGroupId: !Ref SecurityGroup
-      GroupId: !Ref SecurityGroup
-  SecurityGroupIngressSSH:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      IpProtocol: tcp
-      FromPort: 22
-      ToPort: 22
-      CidrIp: !Ref SshClientIp
-      GroupId: !Ref SecurityGroup
-  SecurityGroupIngressHttp:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      IpProtocol: tcp
-      FromPort: 80
-      ToPort: 80
-      CidrIp: 0.0.0.0/0
-      GroupId: !Ref SecurityGroup
-  SecurityGroupIngressHttps:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      IpProtocol: tcp
-      FromPort: 443
-      ToPort: 443
-      CidrIp: 0.0.0.0/0
-      GroupId: !Ref SecurityGroup
-  SecurityGroupIngressApp:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      IpProtocol: tcp
-      FromPort: 8080
-      ToPort: 8080
-      CidrIp: 0.0.0.0/0
-      GroupId: !Ref SecurityGroup
-  DbSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: aws2025q2-SecGrForDb
-      GroupDescription: Security Group for allowing access from the members of the same group
-      VpcId: !Ref VPC
-  DbSecurityGroupIngressInternal:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      IpProtocol: -1 # "-1" allows all protocols
-      FromPort: -1 # "-1" allows all ports
-      ToPort: -1 # "-1" allows all ports
-      SourceSecurityGroupId: !Ref DbSecurityGroup
-      GroupId: !Ref DbSecurityGroup
   LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -181,8 +68,8 @@ Resources:
         InstanceType: !Ref InstanceType
         ImageId: !Ref ImageId
         SecurityGroupIds:
-          - !Ref SecurityGroup
-          - !Ref DbSecurityGroup
+          - !Ref SecurityGroupId
+          - !Ref DbSecurityGroupId
         KeyName: aws2025q2-ssh-keys
         IamInstanceProfile:
           Arn: !Ref IamInstanceProfileArn
@@ -190,14 +77,14 @@ Resources:
           Fn::Base64: !Sub |
             #!/usr/bin/env bash
             cd app
-            aws s3 cp s3://aws2025q2-simple-app/simple-app-0.0.2-SNAPSHOT.jar ./
+            aws s3 cp s3://aws2025q2-simple-app/simple-app-0.0.3-SNAPSHOT.jar ./
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       AutoScalingGroupName: aws2025q2-AutoScalingGroup
       VPCZoneIdentifier:
-        - !Ref PublicSubnetA
-        - !Ref PublicSubnetB
+        - !Ref PublicSubnetAId
+        - !Ref PublicSubnetBId
       MinSize: '1'
       MaxSize: '5'
       DesiredCapacity: '1'
@@ -220,10 +107,10 @@ Resources:
     DependsOn: InternetGateway
     Properties:
       Subnets:
-        - !Ref PublicSubnetA
-        - !Ref PublicSubnetB
+        - !Ref PublicSubnetAId
+        - !Ref PublicSubnetBId
       SecurityGroups:
-        - !Ref SecurityGroup
+        - !Ref SecurityGroupId
       Tags:
         - Key: Name
           Value: aws2025q2-LoadBalancer
@@ -239,7 +126,7 @@ Resources:
   ALBTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      VpcId: !Ref VPC
+      VpcId: !Ref VpcId
       Port: 8080
       Protocol: HTTP
       HealthCheckPort: 8080
