@@ -1,5 +1,3 @@
-Parameters:
-  ImageId: ami-075eb70588c18b490
-  InstanceType: t2.micro
-  IamInstanceProfileArn: arn:aws:iam::822619185993:instance-profile/FullAccessRole_S3_SQS_SNS
-  SshClientIp: 0.0.0.0/0
+template-file-path: cf-template_aleksandr-yamskov.yaml
+parameters: {}
+tags: {}
